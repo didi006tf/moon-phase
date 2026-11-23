@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月相变化模拟器 · 太阳地球月亮</title>
+<style>
+  :root{
+    --bg1:#0b1030; --bg2:#1a1f4d; --card:rgba(255,255,255,.08);
+    --accent:#ffc857; --text:#eef1ff; --soft:#9aa3cf;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:radial-gradient(1200px 600px at 70% -10%, #2a3170, var(--bg1) 60%);
+    color:var(--text); min-height:100vh; padding:20px 14px 60px;
+  }
+  .app{max-width:900px; margin:0 auto;}
+  h1{text-align:center; font-size:26px; margin:8px 0 4px; letter-spacing:2px;}
+  .subtitle{text-align:center; color:var(--soft); font-size:14px; margin-bottom:18px;}
+  .card{
+    background:var(--card); border:1px solid rgba(255,255,255,.12);
+    border-radius:18px; padding:18px; margin-bottom:16px; backdrop-filter:blur(6px);
+  }
+  canvas{display:block; width:100%; height:auto; border-radius:12px;}
+  .flex2{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;}
+  .flex2>.left{flex:1 1 380px;}
+  .flex2>.right{flex:0 0 260px; text-align:center;}
+  .phase-name{font-size:24px; font-weight:bold; color:var(--accent); margin:8px 0 2px;}
+  .phase-info{font-size:13px; color:var(--soft); line-height:1.9;}
+  .controls{display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:12px;}
+  .btn{
+    border:none; border-radius:12px; padding:10px 18px; font-size:15px; font-weight:bold;
+    cursor:pointer; color:#233; background:var(--accent); transition:transform .08s;
+  }
+  .btn:active{transform:translateY(2px);}
+  .btn.ghost{background:rgba(255,255,255,.14); color:var(--text);}
+  .slider-row{display:flex; align-items:center; gap:10px; flex:1 1 220px; font-size:13px; color:var(--soft);}
+  input[type=range]{flex:1; accent-color:var(--accent); cursor:pointer;}
+  .quick{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+  .quick button{
+    background:rgba(255,255,255,.12); color:var(--text); border:1px solid rgba(255,255,255,.2);
+    border-radius:99px; padding:6px 14px; font-size:13px; cursor:pointer;
+  }
+  .quick button:hover{background:rgba(255,255,255,.22);}
+  .note{font-size:13px; color:var(--soft); line-height:1.9;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13px; margin-top:10px; color:var(--soft);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .dot{width:12px; height:12px; border-radius:50%; display:inline-block;}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🌕 月相变化模拟器</h1>
+  <div class="subtitle">转动月亮，观察太阳、地球、月亮的位置关系如何"变出"新月和满月</div>
+
+  <div class="card flex2">
+    <div class="left">
+      <canvas id="orbit" width="680" height="430"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#ffdb70; box-shadow:0 0 8px #ffdb70;"></span>太阳</span>
+        <span><span class="dot" style="background:#5aa9ff;"></span>地球</span>
+        <span><span class="dot" style="background:#d8d8e8;"></span>月亮</span>
+        <span>月亮沿虚线轨道绕地球转动（约29.5天一圈）</span>
+      </div>
+    </div>
+    <div class="right">
+      <canvas id="moonview" width="260" height="260"></canvas>
+      <div class="phase-name" id="phaseName">满月（望）</div>
+      <div class="phase-info" id="phaseInfo"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <button class="btn" id="btnPlay">⏸ 暂停</button>
+      <div class="slider-row">
+        <span>速度</span>
+        <input type="range" id="speed" min="0.5" max="6" step="0.5" value="2">
+        <span id="speedVal">2 天/秒</span>
+      </div>
+      <div class="slider-row">
+        <span>月龄</span>
+        <input type="range" id="phase" min="0" max="29.53" step="0.01" value="14.8">
+        <span id="phaseVal">14.8 天</span>
+      </div>
+    </div>
+    <div class="quick">
+      <button data-d="0">🌑 新月</button>
+      <button data-d="7.38">🌓 上弦月</button>
+      <button data-d="14.77">🌕 满月</button>
+      <button data-d="22.15">🌗 下弦月</button>
+      <button data-d="3.7">🌒 娥眉月</button>
+      <button data-d="25.8">🌘 残月</button>
+    </div>
+    <p class="note" style="margin-bottom:0;">
+      💡 小知识：月亮自己不会发光，我们看到的月光是它<b>反射的太阳光</b>。月亮永远只有朝向太阳的一半是亮的；
+      随着月亮绕地球转，亮的一半朝向我们的角度不断变化，就有了新月→娥眉月→上弦月→盈凸月→满月→亏凸月→下弦月→残月的循环，
+      一个循环约 <b>29.53 天</b>，正好是农历的一个月。
+    </p>
+  </div>
+</div>
+
+<script>
+const SYNODIC=29.53;
+const orbitCv=document.getElementById('orbit'), octx=orbitCv.getContext('2d');
+const moonCv=document.getElementById('moonview'), mctx=moonCv.getContext('2d');
+
+let days=14.77;          // 月龄（0=新月）
+let playing=true;
+let speed=2;             // 天/秒
+let lastT=0;
+
+/* ---------- 星空背景 ---------- */
+const stars=[];
+(function(){let s=7;const rnd=()=>((s=s*16807%2147483647)/2147483647);
+for(let i=0;i<90;i++) stars.push({x:rnd()*680,y:rnd()*430,r:rnd()*1.3+0.4,a:rnd()*0.5+0.3});})();
+
+/* ---------- 俯视图：太阳-地球-月亮 ---------- */
+function drawOrbit(){
+  const W=680,H=430;
+  octx.clearRect(0,0,W,H);
+  // 星空
+  stars.forEach(st=>{
+    octx.globalAlpha=st.a; octx.fillStyle='#fff';
+    octx.beginPath(); octx.arc(st.x,st.y,st.r,0,7); octx.fill();
+  });
+  octx.globalAlpha=1;
+
+  const sunX=95,sunY=215,sunR=46;
+  const ex=400,ey=215,R=150;
+
+  // 太阳光线（淡淡的放射线）
+  octx.strokeStyle='rgba(255,219,112,.10)'; octx.lineWidth=2;
+  for(let a=0;a<12;a++){
+    const ang=a*Math.PI/6;
+    octx.beginPath();
+    octx.moveTo(sunX+Math.cos(ang)*sunR, sunY+Math.sin(ang)*sunR);
+    octx.lineTo(sunX+Math.cos(ang)*640, sunY+Math.sin(ang)*640);
+    octx.stroke();
+  }
+
+  // 月球轨道（虚线）
+  octx.setLineDash([6,7]);
+  octx.strokeStyle='rgba(154,163,207,.5)'; octx.lineWidth=1.5;
+  octx.beginPath(); octx.arc(ex,ey,R,0,7); octx.stroke();
+  octx.setLineDash([]);
+
+  const ph=days/SYNODIC*Math.PI*2;   // 相位角
+  const mx=ex-Math.cos(ph)*R, my=ey-Math.sin(ph)*R;
+
+  // 太阳（发光）
+  const glow=octx.createRadialGradient(sunX,sunY,sunR*0.3,sunX,sunY,sunR*3);
+  glow.addColorStop(0,'rgba(255,200,90,.55)'); glow.addColorStop(1,'rgba(255,200,90,0)');
+  octx.fillStyle=glow;
+  octx.beginPath(); octx.arc(sunX,sunY,sunR*3,0,7); octx.fill();
+  const sg=octx.createRadialGradient(sunX-12,sunY-12,6,sunX,sunY,sunR);
+  sg.addColorStop(0,'#fff3c4'); sg.addColorStop(1,'#ffb300');
+  octx.fillStyle=sg;
+  octx.beginPath(); octx.arc(sunX,sunY,sunR,0,7); octx.fill();
+
+  // 地球（左半亮、右半背光）
+  const eg=octx.createRadialGradient(ex-8,ey-8,4,ex,ey,22);
+  eg.addColorStop(0,'#9fd4ff'); eg.addColorStop(1,'#2f7fd0');
+  octx.fillStyle=eg;
+  octx.beginPath(); octx.arc(ex,ey,22,0,7); octx.fill();
+  // 简单"陆地"
+  octx.fillStyle='rgba(76,175,80,.75)';
+  octx.beginPath(); octx.ellipse(ex-7,ey-6,7,5,-0.5,0,7); octx.fill();
+  octx.beginPath(); octx.ellipse(ex-2,ey+8,6,4,0.4,0,7); octx.fill();
+  // 夜半球（背对太阳的右半）
+  octx.fillStyle='rgba(8,10,30,.55)';
+  octx.beginPath(); octx.arc(ex,ey,22,-Math.PI/2,Math.PI/2); octx.fill();
+
+  // 月亮（亮面永远朝向太阳=左半边亮）
+  const mg=octx.createRadialGradient(mx-6,my-6,3,mx,my,16);
+  mg.addColorStop(0,'#f4f4f8'); mg.addColorStop(1,'#b9b9cc');
+  octx.fillStyle=mg;
+  octx.beginPath(); octx.arc(mx,my,16,0,7); octx.fill();
+  octx.fillStyle='rgba(8,10,30,.72)';
+  octx.beginPath(); octx.arc(mx,my,16,-Math.PI/2,Math.PI/2); octx.fill();  // 右半暗（背向太阳）
+
+  // 轨道方向小箭头
+  const t=ph+0.18, ax=ex-Math.cos(t)*R, ay=ey-Math.sin(t)*R;
+  const ta=Math.atan2(-(Math.cos(t))* -1, Math.sin(t)); // 切线方向
+  octx.save();
+  octx.translate(ax,ay);
+  octx.rotate(Math.atan2( Math.cos(t), -Math.sin(t) ));
+  octx.fillStyle='rgba(255,200,87,.9)';
+  octx.beginPath(); octx.moveTo(8,0); octx.lineTo(-5,4.5); octx.lineTo(-5,-4.5); octx.closePath(); octx.fill();
+  octx.restore();
+
+  // 连线：太阳-地球-月亮 相位示意
+  octx.strokeStyle='rgba(255,255,255,.15)'; octx.lineWidth=1;
+  octx.setLineDash([3,4]);
+  octx.beginPath(); octx.moveTo(sunX,sunY); octx.lineTo(ex,ey); octx.lineTo(mx,my); octx.stroke();
+  octx.setLineDash([]);
+
+  // 标签
+  label(octx,'太阳',sunX,sunY+sunR+22,'#ffdb70');
+  label(octx,'地球',ex,ey+44,'#9fd4ff');
+  label(octx,'月亮',mx,my+38,'#e6e6f2');
+}
+function label(ctx,text,x,y,color){
+  ctx.font='bold 15px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign='center';
+  ctx.fillStyle=color;
+  ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=6;
+  ctx.fillText(text,x,y);
+  ctx.shadowBlur=0;
+}
+
+/* ---------- 地球上看到的月亮 ---------- */
+function drawMoonView(){
+  const W=260,H=260,cx=W/2,cy=H/2,r=92;
+  mctx.clearRect(0,0,W,H);
+  // 背景
+  mctx.fillStyle='rgba(255,255,255,.04)';
+  mctx.beginPath(); mctx.arc(cx,cy,r+26,0,7); mctx.fill();
+
+  const ph=days/SYNODIC;             // 0~1
+  const k=(1-Math.cos(ph*Math.PI*2))/2;  // 照亮比例 0~1
+  const waxing=ph<0.5;               // 上半月亮面在右，下半月在左
+
+  // 暗面底
+  const dark=mctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.2,cx,cy,r);
+  dark.addColorStop(0,'#3a3a4c'); dark.addColorStop(1,'#23232f');
+  mctx.fillStyle=dark;
+  mctx.beginPath(); mctx.arc(cx,cy,r,0,7); mctx.fill();
+
+  // 亮面
+  mctx.save();
+  mctx.beginPath(); mctx.arc(cx,cy,r,0,7); mctx.clip();
+  const bright=mctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.2,cx,cy,r);
+  bright.addColorStop(0,'#fffbe8'); bright.addColorStop(1,'#d9d3b8');
+  mctx.fillStyle=bright;
+  if(waxing){
+    // 右半圆亮（上半月亮面朝右）
+    mctx.beginPath(); mctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2); mctx.fill();
+    if(k<0.5){ // 娥眉月：用暗椭圆盖住亮面内侧，只留右侧一弯细钩
+      mctx.fillStyle=dark;
+      mctx.beginPath(); mctx.ellipse(cx,cy,Math.abs(1-2*k)*r,r,0,-Math.PI/2,Math.PI/2); mctx.fill();
+    }else{     // 盈凸月：晨昏线凸向暗面，把左半椭圆补亮
+      mctx.fillStyle=bright;
+      mctx.beginPath(); mctx.ellipse(cx,cy,(2*k-1)*r,r,0,Math.PI/2,Math.PI*1.5); mctx.fill();
+    }
+  }else{
+    // 左半圆亮（下半月亮面朝左）
+    mctx.beginPath(); mctx.arc(cx,cy,r,Math.PI/2,Math.PI*1.5); mctx.fill();
+    if(k<0.5){ // 残月：只留左侧一弯细钩
+      mctx.fillStyle=dark;
+      mctx.beginPath(); mctx.ellipse(cx,cy,Math.abs(1-2*k)*r,r,0,Math.PI/2,Math.PI*1.5); mctx.fill();
+    }else{     // 亏凸月：把右半椭圆补亮
+      mctx.fillStyle=bright;
+      mctx.beginPath(); mctx.ellipse(cx,cy,(2*k-1)*r,r,0,-Math.PI/2,Math.PI/2); mctx.fill();
+    }
+  }
+  // 环形山（淡淡的）
+  mctx.fillStyle='rgba(120,115,90,.25)';
+  [[-.35,-.3,.16],[.3,.25,.12],[-.1,.45,.10],[.42,-.35,.09],[.05,-.5,.08]].forEach(([dx,dy,rr])=>{
+    mctx.beginPath(); mctx.arc(cx+dx*r,cy+dy*r,rr*r,0,7); mctx.fill();
+  });
+  mctx.restore();
+}
+
+/* ---------- 名称与信息 ---------- */
+const CN=['','一','二','三','四','五','六','七','八','九','十'];
+function lunarText(d){
+  let n=Math.round(d)+1; if(n>30)n=30;
+  if(n===10)return'初十'; if(n===20)return'二十'; if(n===22)return'廿二';
+  if(n===23)return'廿三'; if(n===30)return'三十';
+  if(n===14)return'十四'; if(n===24)return'廿四';
+  if(n<10)return'初'+CN[n];
+  if(n<20)return'十'+CN[n-10];
+  return'廿'+CN[n-20];
+}
+function phaseName(d){
+  if(d<1||d>=28.5)return['新月（朔）','🌑'];
+  if(d<6.4)return['娥眉月','🌒'];
+  if(d<8.4)return['上弦月','🌓'];
+  if(d<13)return['盈凸月','🌔'];
+  if(d<16.5)return['满月（望）','🌕'];
+  if(d<21)return['亏凸月','🌖'];
+  if(d<23.5)return['下弦月','🌗'];
+  return['残月','🌘'];
+}
+function updateInfo(){
+  const [name,emoji]=phaseName(days);
+  const k=Math.round((1-Math.cos(days/SYNODIC*Math.PI*2))/2*100);
+  document.getElementById('phaseName').textContent=emoji+' '+name;
+  document.getElementById('phaseInfo').innerHTML=
+    '月龄：'+days.toFixed(1)+' 天<br>照亮比例：约 '+k+'%<br>农历约：'+lunarText(days);
+  document.getElementById('phaseVal').textContent=days.toFixed(1)+' 天';
+  const slider=document.getElementById('phase');
+  if(!sliderDragging) slider.value=days;
+}
+
+/* ---------- 动画与交互 ---------- */
+let sliderDragging=false;
+function tick(t){
+  if(!lastT)lastT=t;
+  const dt=(t-lastT)/1000; lastT=t;
+  if(playing){
+    days=(days+dt*speed)%SYNODIC;
+    document.getElementById('phase').value=days;
+    document.getElementById('phaseVal').textContent=days.toFixed(1)+' 天';
+    updateInfo();
+  }
+  drawOrbit(); drawMoonView();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+document.getElementById('btnPlay').onclick=function(){
+  playing=!playing;
+  this.textContent=playing?'⏸ 暂停':'▶ 播放';
+};
+document.getElementById('speed').oninput=function(){
+  speed=+this.value;
+  document.getElementById('speedVal').textContent=speed+' 天/秒';
+};
+const ps=document.getElementById('phase');
+ps.addEventListener('input',()=>{ sliderDragging=true; });
+ps.addEventListener('change',()=>{ sliderDragging=false; });
+ps.oninput=function(){
+  days=+this.value%SYNODIC;
+  updateInfo();
+};
+document.querySelectorAll('.quick button').forEach(b=>{
+  b.onclick=()=>{
+    days=+b.dataset.d;
+    document.getElementById('phase').value=days;
+    updateInfo();
+  };
+});
+updateInfo();
+</script>
+</body>
+</html>
